@@ -1,18 +1,64 @@
-## Getting Started
+# 多文档富文本编辑器
 
-Welcome to the VS Code Java world. Here is a guideline to help you get started to write Java code in Visual Studio Code.
+这是一个基于 Java Swing 开发的多文档富文本编辑器。它提供了丰富的文本编辑功能，支持多个文档的同时编辑，以及各种文本格式化选项。
 
-## Folder Structure
+## 主要功能
 
-The workspace contains two folders by default, where:
+1. 多文档管理：支持同时打开、编辑和管理多个文档。
+2. 富文本编辑：提供各种文本格式化选项，如字体、大小、粗体、斜体、下划线等。
+3. 文件操作：支持新建、打开、保存文档。
+4. 编辑功能：包括复制、粘贴、剪切、撤销、重做等基本编辑操作。
+5. 查找和替换：支持在文档中查找和替换文本。
+6. 文本对齐：支持左对齐、居中对齐和右对齐。
+7. 快捷键支持：为常用操作提供快捷键。
 
-- `src`: the folder to maintain sources
-- `lib`: the folder to maintain dependencies
+## 使用说明
 
-Meanwhile, the compiled output files will be generated in the `bin` folder by default.
+1. 运行程序后，会自动创建一个新文档。
+2. 使用顶部菜单栏或工具栏进行各种操作。
+3. 可以通过标签页切换不同的文档。
+4. 使用工具栏上的下拉菜单选择字体和字号。
+5. 使用工具栏上的按钮进行文本格式化和对齐操作。
 
-> If you want to customize the folder structure, open `.vscode/settings.json` and update the related settings there.
+## 快捷键
 
-## Dependency Management
+- Ctrl+N：新建文档
+- Ctrl+O：打开文档
+- Ctrl+S：保存文档
+- Ctrl+W：关闭当前文档
+- Ctrl+Z：撤销
+- Ctrl+Y：重做
+- Ctrl+Tab：切换到下一个标签页
 
-The `JAVA PROJECTS` view allows you to manage your dependencies. More details can be found [here](https://github.com/microsoft/vscode-java-dependency#manage-dependencies).
+## 系统要求
+
+- Java Runtime Environment (JRE) 8 或更高版本
+
+## 如何运行
+
+1. 确保您的系统已安装 Java。
+2. 下载项目文件。
+3. 在命令行中导航到项目目录。
+4. 编译 Java 文件：
+   ```
+   javac TextEditor.java
+   ```
+5. 运行程序：
+   ```
+   java TextEditor
+   ```
+## 示例图
+![image](https://github.com/user-attachments/assets/cee7f46a-d148-440e-923b-62f8b3e96b78)
+
+## 注意事项
+
+- 请确保 `src/icons` 目录中包含所有必要的图标文件，否则工具栏按钮可能无法正确显示。
+- 在关闭文档或退出程序时，请注意保存您的更改。
+
+## 贡献
+
+欢迎对此项目提出改进建议或贡献代码。请随时创建 issue 或提交 pull request。
+
+## 许可
+
+此项目采用 [MIT 许可证](LICENSE)。
