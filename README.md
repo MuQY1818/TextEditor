@@ -36,17 +36,26 @@
 
 ## 如何运行
 
-1. 确保您的系统已安装 Java。
+1. 确保您的系统已安装 Java Runtime Environment (JRE) 8 或更高版本。
 2. 下载项目文件。
-3. 在命令行中导航到项目目录。
-4. 编译 Java 文件：
+3. 在项目根目录下找到 `run_text_editor.bat` 文件。
+4. 双击 `run_text_editor.bat` 文件来编译和运行程序。
+
+如果您想手动编译和运行程序，可以按照以下步骤操作：
+
+1. 打开命令提示符（Windows）或终端（macOS/Linux）。
+2. 导航到项目的 `src` 目录。
+3. 编译 Java 文件：
    ```
-   javac TextEditor.java
+   javac -encoding UTF-8 TextEditor.java
    ```
-5. 运行程序：
+4. 运行程序：
    ```
-   java TextEditor
+   java -Dfile.encoding=UTF-8 TextEditor
    ```
+
+注意：使用 UTF-8 编码可以确保正确处理中文字符。
+
 ## 示例图
 ![image](https://github.com/user-attachments/assets/cee7f46a-d148-440e-923b-62f8b3e96b78)
 
