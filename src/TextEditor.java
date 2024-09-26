@@ -5,7 +5,6 @@ import java.awt.event.*;
 import java.io.*;
 import java.util.ArrayList;
 import javax.swing.undo.UndoManager;
-import javax.swing.text.StyleConstants;
 import javax.swing.border.EmptyBorder;
 
 /**
@@ -24,7 +23,7 @@ public class TextEditor extends JFrame {
      */
     public TextEditor() {
         setTitle("多文档富文本编辑器");
-        setSize(800, 600);
+        setSize(1080, 720);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
         documents = new ArrayList<>();
@@ -438,11 +437,34 @@ public class TextEditor extends JFrame {
         toolBar.setFloatable(false);
         toolBar.setBorder(new EmptyBorder(5, 5, 5, 5));
 
-        // 字体标签
-        JLabel fontLabel = new JLabel("字体：");
-        toolBar.add(fontLabel);
+        // 新建、打开、保存按钮
+        toolBar.add(createToolBarButton("src/icons/new.png", e -> newDocument(), "新建文档"));
+        toolBar.add(createToolBarButton("src/icons/open.png", e -> openDocument(), "打开文档"));
+        toolBar.add(createToolBarButton("src/icons/save.png", e -> saveDocument(), "保存文档"));
+
+        toolBar.addSeparator();
+
+        // 复制、剪切、粘贴按钮
+        toolBar.add(createToolBarButton("src/icons/copy.png", e -> copy(), "复制"));
+        toolBar.add(createToolBarButton("src/icons/cut.png", e -> cut(), "剪切"));
+        toolBar.add(createToolBarButton("src/icons/paste.png", e -> paste(), "粘贴"));
+
+        toolBar.addSeparator();
+
+        // 撤销、重做按钮
+        toolBar.add(createToolBarButton("src/icons/undo.png", e -> undo(), "撤销"));
+        toolBar.add(createToolBarButton("src/icons/redo.png", e -> redo(), "重做"));
+
+        toolBar.addSeparator();
+
+        // 查找、替换按钮
+        toolBar.add(createToolBarButton("src/icons/find.png", e -> findText(), "查找"));
+        toolBar.add(createToolBarButton("src/icons/replace.png", e -> replaceText(), "替换"));
+
+        toolBar.addSeparator();
 
         // 字体选择
+        toolBar.add(new JLabel(createScaledImageIcon("src/icons/font.png", 24, 24)));
         String[] fonts = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
         fontComboBox = new JComboBox<>(fonts);
         fontComboBox.setEditable(true);
@@ -450,13 +472,8 @@ public class TextEditor extends JFrame {
         fontComboBox.addActionListener(e -> setSelectedFont());
         toolBar.add(fontComboBox);
 
-        toolBar.addSeparator();
-
-        // 字体大小标签
-        JLabel sizeLabel = new JLabel("字体大小：");
-        toolBar.add(sizeLabel);
-
         // 字体大小选择
+        toolBar.add(new JLabel(createScaledImageIcon("src/icons/font_size.png", 24, 24)));
         String[] sizes = {"8", "9", "10", "11", "12", "14", "16", "18", "20", "22", "24", "26", "28", "36", "48", "72"};
         fontSizeComboBox = new JComboBox<>(sizes);
         fontSizeComboBox.setEditable(true);
@@ -466,39 +483,22 @@ public class TextEditor extends JFrame {
 
         toolBar.addSeparator();
 
-        // 加粗按钮
-        boldButton = new JToggleButton("B");
-        boldButton.setFont(boldButton.getFont().deriveFont(Font.BOLD));
-        boldButton.addActionListener(e -> setBold());
+        // 加粗、斜体、下划线按钮
+        boldButton = createToolBarToggleButton("src/icons/bold.png", e -> setBold(), "粗体");
         toolBar.add(boldButton);
-
-        // 斜体按钮
-        italicButton = new JToggleButton("I");
-        italicButton.setFont(italicButton.getFont().deriveFont(Font.ITALIC));
-        italicButton.addActionListener(e -> setItalic());
+        italicButton = createToolBarToggleButton("src/icons/italic.png", e -> setItalic(), "斜体");
         toolBar.add(italicButton);
-
-        // 下划线按钮
-        underlineButton = new JToggleButton("U");
-        underlineButton.setFont(underlineButton.getFont().deriveFont(Font.PLAIN));
-        underlineButton.addActionListener(e -> setUnderline());
+        underlineButton = createToolBarToggleButton("src/icons/underline.png", e -> setUnderline(), "下划线");
         toolBar.add(underlineButton);
 
         toolBar.addSeparator();
 
-        // 左对齐按钮
-        leftAlignButton = new JToggleButton("左");
-        leftAlignButton.addActionListener(e -> setAlignment(StyleConstants.ALIGN_LEFT));
+        // 对齐方式按钮
+        leftAlignButton = createToolBarToggleButton("src/icons/align_left.png", e -> setAlignment(StyleConstants.ALIGN_LEFT), "左对齐");
         toolBar.add(leftAlignButton);
-
-        // 居中对齐按钮
-        centerAlignButton = new JToggleButton("中");
-        centerAlignButton.addActionListener(e -> setAlignment(StyleConstants.ALIGN_CENTER));
+        centerAlignButton = createToolBarToggleButton("src/icons/align_center.png", e -> setAlignment(StyleConstants.ALIGN_CENTER), "居中对齐");
         toolBar.add(centerAlignButton);
-
-        // 右对齐按钮
-        rightAlignButton = new JToggleButton("右");
-        rightAlignButton.addActionListener(e -> setAlignment(StyleConstants.ALIGN_RIGHT));
+        rightAlignButton = createToolBarToggleButton("src/icons/align_right.png", e -> setAlignment(StyleConstants.ALIGN_RIGHT), "右对齐");
         toolBar.add(rightAlignButton);
 
         // 创建一个按钮组，确保只有一个对齐按钮被选中
@@ -508,6 +508,32 @@ public class TextEditor extends JFrame {
         alignmentGroup.add(rightAlignButton);
 
         add(toolBar, BorderLayout.NORTH);
+    }
+
+    private JButton createToolBarButton(String iconPath, ActionListener action, String toolTipText) {
+        ImageIcon icon = new ImageIcon(iconPath);
+        Image img = icon.getImage().getScaledInstance(16, 16, Image.SCALE_SMOOTH);
+        JButton button = new JButton(new ImageIcon(img));
+        button.setFocusPainted(false);
+        button.addActionListener(action);
+        button.setToolTipText(toolTipText);
+        return button;
+    }
+
+    private JToggleButton createToolBarToggleButton(String iconPath, ActionListener action, String toolTipText) {
+        ImageIcon icon = new ImageIcon(iconPath);
+        Image img = icon.getImage().getScaledInstance(16, 16, Image.SCALE_SMOOTH);
+        JToggleButton button = new JToggleButton(new ImageIcon(img));
+        button.setFocusPainted(false);
+        button.addActionListener(action);
+        button.setToolTipText(toolTipText);
+        return button;
+    }
+
+    private ImageIcon createScaledImageIcon(String path, int width, int height) {
+        ImageIcon icon = new ImageIcon(path);
+        Image img = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
+        return new ImageIcon(img);
     }
 
     /**
