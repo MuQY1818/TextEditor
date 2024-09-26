@@ -18,6 +18,14 @@ public class TextEditor extends JFrame {
     private JToggleButton boldButton, italicButton, underlineButton;
     private JToggleButton leftAlignButton, centerAlignButton, rightAlignButton;
 
+    private enum WindowArrangement {
+        CASCADE,
+        TILE_HORIZONTAL,
+        TILE_VERTICAL
+    }
+
+    private WindowArrangement currentArrangement = WindowArrangement.CASCADE;
+
     public TextEditor() {
         setTitle("多文档富文本编辑器");
         setSize(1080, 720);
@@ -306,13 +314,17 @@ public class TextEditor extends JFrame {
         } catch (java.beans.PropertyVetoException e) {
             e.printStackTrace();
         }
+        
+        // 应用当前的窗口排列
+        applyCurrentArrangement();
     }
-
+    
     private void closeDocument() {
         JInternalFrame currentFrame = desktopPane.getSelectedFrame();
         if (currentFrame != null) {
             closeDocument(currentFrame);
         }
+        applyCurrentArrangement();
     }
     
     private void saveAsDocument() {
@@ -367,6 +379,7 @@ public class TextEditor extends JFrame {
         } else {
             System.out.println("没有选中的文档");
         }
+        applyCurrentArrangement();
     }
     
     private void openDocument() {
@@ -402,6 +415,7 @@ public class TextEditor extends JFrame {
                 JOptionPane.showMessageDialog(this, "无法打开文件：" + e.getMessage());
             }
         }
+        applyCurrentArrangement();
     }
 
     private void saveDocument(JInternalFrame frame) {
@@ -671,6 +685,7 @@ public class TextEditor extends JFrame {
     }
 
     private void cascadeWindows() {
+        currentArrangement = WindowArrangement.CASCADE;
         int x = 0, y = 0;
         for (JInternalFrame frame : desktopPane.getAllFrames()) {
             if (frame.isIcon()) continue;
@@ -689,6 +704,7 @@ public class TextEditor extends JFrame {
     }
 
     private void tileWindowsHorizontally() {
+        currentArrangement = WindowArrangement.TILE_HORIZONTAL;
         JInternalFrame[] frames = desktopPane.getAllFrames();
         int count = frames.length;
         if (count == 0) return;
@@ -718,6 +734,7 @@ public class TextEditor extends JFrame {
     }
 
     private void tileWindowsVertically() {
+        currentArrangement = WindowArrangement.TILE_VERTICAL;
         JInternalFrame[] frames = desktopPane.getAllFrames();
         int count = frames.length;
         if (count == 0) return;
@@ -734,6 +751,20 @@ public class TextEditor extends JFrame {
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    private void applyCurrentArrangement() {
+        switch (currentArrangement) {
+            case CASCADE:
+                cascadeWindows();
+                break;
+            case TILE_HORIZONTAL:
+                tileWindowsHorizontally();
+                break;
+            case TILE_VERTICAL:
+                tileWindowsVertically();
+                break;
         }
     }
 
