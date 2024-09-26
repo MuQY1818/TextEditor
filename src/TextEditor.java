@@ -5,22 +5,19 @@ import java.awt.event.*;
 import java.io.*;
 import java.util.ArrayList;
 import javax.swing.undo.UndoManager;
-import javax.swing.border.EmptyBorder;
+import javax.swing.event.InternalFrameAdapter;
+import javax.swing.event.InternalFrameEvent;
+import javax.swing.border.Border;
 
-/**
- * 多文档富文本编辑器主类
- */
+
 public class TextEditor extends JFrame {
-    private JTabbedPane tabbedPane;  // 用于管理多个文档的标签页面板
-    private ArrayList<TextDocument> documents;  // 存储所有打开的文档
-    private JComboBox<String> fontComboBox;  // 字体选择下拉框
-    private JComboBox<String> fontSizeComboBox;  // 字体大小选择下拉框
-    private JToggleButton boldButton, italicButton, underlineButton;  // 粗体、斜体、下划线按钮
-    private JToggleButton leftAlignButton, centerAlignButton, rightAlignButton;  // 对齐方式按钮
+    private JDesktopPane desktopPane;
+    private ArrayList<TextDocument> documents;
+    private JComboBox<String> fontComboBox;
+    private JComboBox<String> fontSizeComboBox;
+    private JToggleButton boldButton, italicButton, underlineButton;
+    private JToggleButton leftAlignButton, centerAlignButton, rightAlignButton;
 
-    /**
-     * 构造函数，初始化编辑器界面
-     */
     public TextEditor() {
         setTitle("多文档富文本编辑器");
         setSize(1080, 720);
@@ -30,34 +27,67 @@ public class TextEditor extends JFrame {
         ImageIcon icon = new ImageIcon("src/icons/app_icon.png");
         setIconImage(icon.getImage());
 
+        desktopPane = new JDesktopPane();
+        // 设置背景图片
+        ImageIcon imageIcon = new ImageIcon("src/images/background_2.png");
+        if (imageIcon.getImageLoadStatus() == MediaTracker.COMPLETE) {
+            System.out.println("背景图片加载成功");
+            Image image = imageIcon.getImage();
+            float alpha = 0.5f; // 设置透明度为50%
+            double scaleFactor = 0.8; // 设置图片大小
+            desktopPane.setBorder(new BackgroundImageBorder(image, alpha, scaleFactor));
+        } else {
+            System.out.println("背景图片加载失败");
+        }
+        
         documents = new ArrayList<>();
-        tabbedPane = new JTabbedPane();
-        tabbedPane.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                if (e.getButton() == MouseEvent.BUTTON2) {  // 鼠标中键点击关闭标签页
-                    int tabIndex = tabbedPane.indexAtLocation(e.getX(), e.getY());
-                    if (tabIndex != -1) {
-                        closeDocument(tabIndex);
-                    }
-                }
-            }
-        });
 
-        createMenuBar();  // 创建菜单栏
-        createToolBar();  // 创建工具栏
+        createMenuBar();
+        createToolBar();
 
-        add(tabbedPane, BorderLayout.CENTER);
+        add(desktopPane, BorderLayout.CENTER);
 
-        // 创建一个新文档作为初始标签页
         newDocument();
 
-        setupShortcuts();  // 设置快捷键
+        setupShortcuts();
     }
 
-    /**
-     * 创建菜单栏
-     */
+    private static class BackgroundImageBorder implements Border {
+        private final Image image;
+        private final float alpha;
+        private final double scaleFactor; 
+    
+        public BackgroundImageBorder(Image image, float alpha, double scaleFactor) {
+            this.image = image;
+            this.alpha = alpha;
+            this.scaleFactor = scaleFactor;
+        }
+    
+        @Override
+        public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
+            if (image != null) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                int imageWidth = (int)(image.getWidth(null) * scaleFactor);
+                int imageHeight = (int)(image.getHeight(null) * scaleFactor);
+                int offsetX = (width - imageWidth) / 2;
+                int offsetY = (height - imageHeight) / 2;
+                g2d.drawImage(image, offsetX, offsetY, imageWidth, imageHeight, null);
+                g2d.dispose();
+            }
+        }
+    
+        @Override
+        public Insets getBorderInsets(Component c) {
+            return new Insets(0, 0, 0, 0);
+        }
+    
+        @Override
+        public boolean isBorderOpaque() {
+            return false;
+        }
+    }
+    
     private void createMenuBar() {
         JMenuBar menuBar = new JMenuBar();
         
@@ -66,7 +96,9 @@ public class TextEditor extends JFrame {
         fileMenu.add(createMenuItem("新建文档", KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK, e -> newDocument()));
         fileMenu.add(createMenuItem("打开文档", KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK, e -> openDocument()));
         fileMenu.add(createMenuItem("保存文档", KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK, e -> saveDocument()));
-        fileMenu.add(createMenuItem("关闭文档", KeyEvent.VK_W, InputEvent.CTRL_DOWN_MASK, e -> closeDocument(tabbedPane.getSelectedIndex())));
+        fileMenu.add(createMenuItem("另存为", KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK, e -> saveAsDocument()));
+        fileMenu.add(createMenuItem("关闭文档", KeyEvent.VK_W, InputEvent.CTRL_DOWN_MASK, e -> closeDocument()));
+        fileMenu.add(createMenuItem("关闭所有文档", KeyEvent.VK_Q, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK, e -> closeAllDocuments()));
         menuBar.add(fileMenu);
 
         // 编辑菜单
@@ -85,18 +117,22 @@ public class TextEditor extends JFrame {
         formatMenu.add(createMenuItem("设置粗体", e -> setBold()));
         formatMenu.add(createMenuItem("设置斜体", e -> setItalic()));
         formatMenu.add(createMenuItem("设置下划线", e -> setUnderline()));
-        formatMenu.add(createMenuItem("设置字体", e -> setFont()));
+        formatMenu.add(createMenuItem("设置字体", e -> setSelectedFont()));
         formatMenu.add(createMenuItem("左对齐", e -> setAlignment(StyleConstants.ALIGN_LEFT)));
         formatMenu.add(createMenuItem("居中对齐", e -> setAlignment(StyleConstants.ALIGN_CENTER)));
         formatMenu.add(createMenuItem("右对齐", e -> setAlignment(StyleConstants.ALIGN_RIGHT)));
         menuBar.add(formatMenu);
 
+        // 窗口菜单
+        JMenu windowMenu = new JMenu("窗口");
+        windowMenu.add(createMenuItem("窗口层叠", e -> cascadeWindows()));
+        windowMenu.add(createMenuItem("水平平铺", e -> tileWindowsHorizontally()));
+        windowMenu.add(createMenuItem("垂直平铺", e -> tileWindowsVertically()));
+        menuBar.add(windowMenu);
+
         setJMenuBar(menuBar);
     }
 
-    /**
-     * 创建带快捷键的菜单项
-     */
     private JMenuItem createMenuItem(String title, int keyCode, int modifiers, ActionListener action) {
         JMenuItem menuItem = new JMenuItem(title);
         menuItem.setAccelerator(KeyStroke.getKeyStroke(keyCode, modifiers));
@@ -104,209 +140,506 @@ public class TextEditor extends JFrame {
         return menuItem;
     }
 
-    /**
-     * 创建普通菜单项
-     */
     private JMenuItem createMenuItem(String title, ActionListener action) {
         JMenuItem menuItem = new JMenuItem(title);
         menuItem.addActionListener(action);
         return menuItem;
     }
 
-    /**
-     * 创建新文档
-     */
+    private JButton createButton(String iconPath, String toolTipText) {
+        ImageIcon originalIcon = new ImageIcon(iconPath);
+        Image scaledImage = originalIcon.getImage().getScaledInstance(16, 16, Image.SCALE_SMOOTH);
+        ImageIcon scaledIcon = new ImageIcon(scaledImage);
+        
+        JButton button = new JButton(scaledIcon);
+        button.setToolTipText(toolTipText);
+        button.setPreferredSize(new Dimension(25, 25));
+        return button;
+    }
+
+    private void createToolBar() {
+        JToolBar toolBar = new JToolBar();
+        toolBar.setFloatable(false);
+        
+         // 新建文件按钮
+        JButton newButton = createButton("src/icons/new.png", "新建文件");
+        newButton.addActionListener(e -> newDocument());
+        toolBar.add(newButton);
+
+        // 打开文件按钮
+        JButton openButton = createButton("src/icons/open.png", "打开文件");
+        openButton.addActionListener(e -> openDocument());
+        toolBar.add(openButton);
+
+        // 保存文件按钮
+        JButton saveButton = createButton("src/icons/save.png", "保存文件");
+        saveButton.addActionListener(e -> saveDocument());
+        toolBar.add(saveButton);
+
+        // 另存为按钮
+        JButton saveAsButton = createButton("src/icons/save_as.png", "另存为");
+        saveAsButton.addActionListener(e -> saveAsDocument());
+        toolBar.add(saveAsButton);
+     
+        // 关闭所有文档按钮
+        JButton closeAllButton = createButton("src/icons/close_all.png", "关闭所有文档");
+        closeAllButton.addActionListener(e -> closeAllDocuments());
+        toolBar.add(closeAllButton);
+        toolBar.addSeparator();
+
+        // 复制按钮
+        JButton copyButton = createButton("src/icons/copy.png", "复制");
+        copyButton.addActionListener(e -> copy());
+        toolBar.add(copyButton);
+
+        // 粘贴按钮
+        JButton pasteButton = createButton("src/icons/paste.png", "粘贴");
+        pasteButton.addActionListener(e -> paste());
+        toolBar.add(pasteButton);
+
+        // 剪切按钮
+        JButton cutButton = createButton("src/icons/cut.png", "剪切");
+        cutButton.addActionListener(e -> cut());
+        toolBar.add(cutButton);
+        toolBar.addSeparator();
+        
+        // 查找按钮
+        JButton findButton = createButton("src/icons/find.png", "查找");
+        findButton.addActionListener(e -> findText());
+        toolBar.add(findButton);
+
+        // 替换按钮
+        JButton replaceButton = createButton("src/icons/replace.png", "替换");
+        replaceButton.addActionListener(e -> replaceText());
+        toolBar.add(replaceButton);
+        
+        toolBar.addSeparator();
+        // 撤销按钮
+        JButton undoButton = createButton("src/icons/undo.png", "撤销");
+        undoButton.addActionListener(e -> undo());
+        toolBar.add(undoButton);
+
+        // 重做按钮
+        JButton redoButton = createButton("src/icons/redo.png", "重做");
+        redoButton.addActionListener(e -> redo());
+        toolBar.add(redoButton);
+        toolBar.addSeparator();
+        // 字体选择
+        fontComboBox = new JComboBox<>(GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames());
+        fontComboBox.setMaximumSize(new Dimension(150, 25));
+        fontComboBox.addActionListener(e -> setSelectedFont());
+        toolBar.add(fontComboBox);
+
+        // 字号选择
+        String[] fontSizes = {"8", "9", "10", "11", "12", "14", "16", "18", "20", "22", "24", "26", "28", "36", "48", "72"};
+        fontSizeComboBox = new JComboBox<>(fontSizes);
+        fontSizeComboBox.setMaximumSize(new Dimension(50, 25));
+        fontSizeComboBox.addActionListener(e -> setSelectedFontSize());
+        toolBar.add(fontSizeComboBox);
+        toolBar.addSeparator();
+
+        // 粗体按钮
+        boldButton = createToggleButton("src/icons/bold.png", "粗体");
+        boldButton.addActionListener(e -> setBold());
+        toolBar.add(boldButton);
+
+        // 斜体按钮
+        italicButton = createToggleButton("src/icons/italic.png", "斜体");
+        italicButton.addActionListener(e -> setItalic());
+        toolBar.add(italicButton);
+
+        // 下划线按钮
+        underlineButton = createToggleButton("src/icons/underline.png", "下划线");
+        underlineButton.addActionListener(e -> setUnderline());
+        toolBar.add(underlineButton);
+        
+        toolBar.addSeparator();
+        // 左对齐按钮
+        leftAlignButton = createToggleButton("src/icons/align_left.png", "左对齐");
+        leftAlignButton.addActionListener(e -> setAlignment(StyleConstants.ALIGN_LEFT));
+        toolBar.add(leftAlignButton);
+
+        // 居中对齐按钮
+        centerAlignButton = createToggleButton("src/icons/align_center.png", "居中对齐");
+        centerAlignButton.addActionListener(e -> setAlignment(StyleConstants.ALIGN_CENTER));
+        toolBar.add(centerAlignButton);
+
+        // 右对齐按钮
+        rightAlignButton = createToggleButton("src/icons/align_right.png", "右对齐");
+        rightAlignButton.addActionListener(e -> setAlignment(StyleConstants.ALIGN_RIGHT));
+        toolBar.add(rightAlignButton);
+
+        add(toolBar, BorderLayout.NORTH);
+    }
+
+    private JToggleButton createToggleButton(String iconPath, String toolTipText) {
+        ImageIcon originalIcon = new ImageIcon(iconPath);
+        Image scaledImage = originalIcon.getImage().getScaledInstance(16, 16, Image.SCALE_SMOOTH);
+        ImageIcon scaledIcon = new ImageIcon(scaledImage);
+        
+        JToggleButton button = new JToggleButton(scaledIcon);
+        button.setToolTipText(toolTipText);
+        button.setPreferredSize(new Dimension(25, 25));
+        return button;
+    }
+
     private void newDocument() {
         TextDocument doc = new TextDocument();
         documents.add(doc);
-        JScrollPane scrollPane = new JScrollPane(doc.getTextPane());
-        tabbedPane.addTab("新文档 " + documents.size(), scrollPane);
-        int index = tabbedPane.getTabCount() - 1;
-        tabbedPane.setSelectedIndex(index);
-        tabbedPane.setTabComponentAt(index, new TabComponent(tabbedPane));
+        JInternalFrame iframe = new JInternalFrame("新文档 " + documents.size(), true, true, true, true);
+        iframe.add(new JScrollPane(doc.getTextPane()));
+        iframe.setSize(400, 300);
+        iframe.setVisible(true);
+        
+        // 添加窗口监听器
+        iframe.addInternalFrameListener(new InternalFrameAdapter() {
+            @Override
+            public void internalFrameClosing(InternalFrameEvent e) {
+                closeDocument(iframe);
+            }
+        });
+        
+        desktopPane.add(iframe);
+        iframe.toFront();
+        try {
+            iframe.setSelected(true);
+        } catch (java.beans.PropertyVetoException e) {
+            e.printStackTrace();
+        }
     }
 
-    /**
-     * 关闭指定索引的文档
-     */
-    private void closeDocument(int index) {
-        if (index != -1) {
-            int choice = JOptionPane.showConfirmDialog(
-                this,
-                "是否保存更改？",
-                "关闭文档",
-                JOptionPane.YES_NO_CANCEL_OPTION
-            );
-            if (choice == JOptionPane.YES_OPTION) {
-                saveDocument();
-            }
-            if (choice != JOptionPane.CANCEL_OPTION) {
-                tabbedPane.remove(index);
-                documents.remove(index);
-                if (tabbedPane.getTabCount() == 0) {
-                    newDocument();
+    private void closeDocument() {
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            closeDocument(currentFrame);
+        }
+    }
+    
+    private void saveAsDocument() {
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null) {
+                JFileChooser fileChooser = new JFileChooser();
+                if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+                    File file = fileChooser.getSelectedFile();
+                    try {
+                        currentDoc.saveFile(file);
+                        currentFrame.setTitle(file.getName());
+                    } catch (IOException e) {
+                        JOptionPane.showMessageDialog(this, "无法保存文件：" + e.getMessage());
+                    }
                 }
             }
         }
     }
 
-    /**
-     * 打开文档
-     */
+    private void closeDocument(JInternalFrame frame) {
+        if (frame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(frame);
+            if (currentDoc != null) {
+                if (currentDoc.isModified()) {
+                    int choice = JOptionPane.showConfirmDialog(
+                        this,
+                        "文档已被修改，是否保存更改？",
+                        "关闭文档",
+                        JOptionPane.YES_NO_CANCEL_OPTION,
+                        JOptionPane.WARNING_MESSAGE
+                    );
+                    
+                    if (choice == JOptionPane.YES_OPTION) {
+                        saveDocument(frame);
+                        if (currentDoc.isModified()) {
+                            // 如果用户在保存对话框中取消了操作，不关闭文档
+                            return;
+                        }
+                    } else if (choice == JOptionPane.CANCEL_OPTION) {
+                        // 用户选择取消，不关闭文档
+                        return;
+                    }
+                }
+                
+                frame.dispose();
+                documents.remove(currentDoc);
+            } else {
+                System.out.println("无法获取当前文档");
+            }
+        } else {
+            System.out.println("没有选中的文档");
+        }
+    }
+    
     private void openDocument() {
         JFileChooser fileChooser = new JFileChooser();
         if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
+    
             TextDocument doc = new TextDocument();
             try {
                 doc.loadFile(file);
                 documents.add(doc);
-                tabbedPane.addTab(file.getName(), new JScrollPane(doc.getTextPane()));
-                tabbedPane.setSelectedIndex(tabbedPane.getTabCount() - 1);
+                JInternalFrame iframe = new JInternalFrame(file.getName(), true, true, true, true);
+                iframe.add(new JScrollPane(doc.getTextPane()));
+                iframe.setSize(400, 300);
+                iframe.setVisible(true);
+                
+                // 添加窗口监听器
+                iframe.addInternalFrameListener(new InternalFrameAdapter() {
+                    @Override
+                    public void internalFrameClosing(InternalFrameEvent e) {
+                        closeDocument(iframe);
+                    }
+                });
+                
+                desktopPane.add(iframe);
+                iframe.toFront();
+                try {
+                    iframe.setSelected(true);
+                } catch (java.beans.PropertyVetoException e) {
+                    e.printStackTrace();
+                }
             } catch (IOException e) {
                 JOptionPane.showMessageDialog(this, "无法打开文件：" + e.getMessage());
             }
         }
     }
 
-    /**
-     * 保存当前文档
-     */
-    private void saveDocument() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            TextDocument currentDoc = documents.get(currentIndex);
-            JFileChooser fileChooser = new JFileChooser();
-            if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-                File file = fileChooser.getSelectedFile();
-                try {
-                    currentDoc.saveFile(file);
-                    tabbedPane.setTitleAt(currentIndex, file.getName());
-                } catch (IOException e) {
-                    JOptionPane.showMessageDialog(this, "无法保存文件：" + e.getMessage());
+    private void saveDocument(JInternalFrame frame) {
+        if (frame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(frame);
+            if (currentDoc != null) {
+                JFileChooser fileChooser = new JFileChooser();
+                if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+                    File file = fileChooser.getSelectedFile();
+                    try {
+                        currentDoc.saveFile(file);
+                        frame.setTitle(file.getName());
+                    } catch (IOException e) {
+                        JOptionPane.showMessageDialog(this, "无法保存文件：" + e.getMessage());
+                    }
                 }
             }
         }
     }
 
-    /**
-     * 撤销操作
-     */
+    private void closeAllDocuments() {
+        int choice = JOptionPane.showConfirmDialog(
+            this,
+            "确定要关闭所有文档吗？",
+            "关闭所有文档",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE
+        );
+        
+        if (choice == JOptionPane.YES_OPTION) {
+            JInternalFrame[] frames = desktopPane.getAllFrames();
+            for (JInternalFrame frame : frames) {
+                closeDocument(frame);
+            }
+        }
+    }
+
+    private void saveDocument() {
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null) {
+                if (currentDoc.getFile() != null) {
+                    // 文件已经存在，直接保存
+                    try {
+                        currentDoc.saveFile(currentDoc.getFile());
+                    } catch (IOException e) {
+                        JOptionPane.showMessageDialog(this, "无法保存文件：" + e.getMessage());
+                    }
+                } else {
+                    // 新文件，调用另存为方法
+                    saveAsDocument();
+                }
+            }
+        }
+    }
+
+    private TextDocument getDocumentFromFrame(JInternalFrame frame) {
+        Component comp = frame.getContentPane().getComponent(0);
+        if (comp instanceof JScrollPane) {
+            JScrollPane scrollPane = (JScrollPane) comp;
+            Component view = scrollPane.getViewport().getView();
+            if (view instanceof JTextPane) {
+                for (TextDocument doc : documents) {
+                    if (doc.getTextPane() == view) {
+                        return doc;
+                    }
+                }
+            }
+        }
+        System.out.println("无法找到与框架关联的文档");
+        return null;
+    }
+
     private void undo() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            TextDocument currentDoc = documents.get(currentIndex);
-            if (currentDoc.getUndoManager().canUndo()) {
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null && currentDoc.getUndoManager().canUndo()) {
                 currentDoc.getUndoManager().undo();
             }
         }
     }
 
-    /**
-     * 重做操作
-     */
     private void redo() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            TextDocument currentDoc = documents.get(currentIndex);
-            if (currentDoc.getUndoManager().canRedo()) {
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null && currentDoc.getUndoManager().canRedo()) {
                 currentDoc.getUndoManager().redo();
             }
         }
     }
 
-    /**
-     * 复制操作
-     */
     private void copy() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            TextDocument currentDoc = documents.get(currentIndex);
-            currentDoc.getTextPane().copy();
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null) {
+                currentDoc.getTextPane().copy();
+            }
         }
     }
 
-    /**
-     * 粘贴操作
-     */
     private void paste() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            TextDocument currentDoc = documents.get(currentIndex);
-            currentDoc.getTextPane().paste();
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null) {
+                currentDoc.getTextPane().paste();
+            }
         }
     }
 
-    /**
-     * 剪切操作
-     */
     private void cut() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            TextDocument currentDoc = documents.get(currentIndex);
-            currentDoc.getTextPane().cut();
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null) {
+                currentDoc.getTextPane().cut();
+            }
         }
     }
 
-    /**
-     * 设置粗体
-     */
-    private void setBold() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            JTextPane currentTextPane = documents.get(currentIndex).getTextPane();
-            MutableAttributeSet attrs = new SimpleAttributeSet();
-            StyleConstants.setBold(attrs, boldButton.isSelected());
-            setCharacterAttributes(currentTextPane, attrs, false);
-        }
-    }
-
-    /**
-     * 设置斜体
-     */
-    private void setItalic() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            JTextPane currentTextPane = documents.get(currentIndex).getTextPane();
-            MutableAttributeSet attrs = new SimpleAttributeSet();
-            StyleConstants.setItalic(attrs, italicButton.isSelected());
-            setCharacterAttributes(currentTextPane, attrs, false);
-        }
-    }
-
-    /**
-     * 设置下划线
-     */
-    private void setUnderline() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            JTextPane currentTextPane = documents.get(currentIndex).getTextPane();
-            MutableAttributeSet attrs = new SimpleAttributeSet();
-            StyleConstants.setUnderline(attrs, underlineButton.isSelected());
-            setCharacterAttributes(currentTextPane, attrs, false);
-        }
-    }
-
-    /**
-     * 设置字体
-     */
-    private void setFont() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            JTextPane currentTextPane = documents.get(currentIndex).getTextPane();
-            String fontName = JOptionPane.showInputDialog("输入字体名称：");
-            String fontSizeStr = JOptionPane.showInputDialog("输入字体大小：");
-            if (fontName != null && fontSizeStr != null) {
-                try {
-                    int fontSize = Integer.parseInt(fontSizeStr);
-                    Style style = currentTextPane.addStyle("FontStyle", null);
-                    StyleConstants.setFontFamily(style, fontName);
-                    StyleConstants.setFontSize(style, fontSize);
-                    int start = currentTextPane.getSelectionStart();
-                    int end = currentTextPane.getSelectionEnd();
-                    if (start != end) {
-                        currentTextPane.setCharacterAttributes(style, false);
+    private void findText() {
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null) {
+                String searchText = JOptionPane.showInputDialog(this, "请输入要查找的文本：");
+                if (searchText != null && !searchText.isEmpty()) {
+                    JTextPane textPane = currentDoc.getTextPane();
+                    String content = textPane.getText();
+                    int index = content.indexOf(searchText, textPane.getCaretPosition());
+                    if (index != -1) {
+                        textPane.setCaretPosition(index);
+                        textPane.select(index, index + searchText.length());
+                    } else {
+                        JOptionPane.showMessageDialog(this, "未找到指定文本。");
                     }
+                }
+            }
+        }
+    }
+    
+    private void replaceText() {
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null) {
+                String searchText = JOptionPane.showInputDialog(this, "请输入要替换的文本：");
+                if (searchText != null && !searchText.isEmpty()) {
+                    String replaceText = JOptionPane.showInputDialog(this, "请输入替换后的文本：");
+                    if (replaceText != null) {
+                        JTextPane textPane = currentDoc.getTextPane();
+                        String content = textPane.getText();
+                        content = content.replace(searchText, replaceText);
+                        textPane.setText(content);
+                    }
+                }
+            }
+        }
+    }
+
+    private void setBold() {
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null) {
+                JTextPane currentTextPane = currentDoc.getTextPane();
+                MutableAttributeSet attrs = new SimpleAttributeSet();
+                StyleConstants.setBold(attrs, boldButton.isSelected());
+                setCharacterAttributes(currentTextPane, attrs, false);
+            }
+        }
+    }
+
+    private void setItalic() {
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null) {
+                JTextPane currentTextPane = currentDoc.getTextPane();
+                MutableAttributeSet attrs = new SimpleAttributeSet();
+                StyleConstants.setItalic(attrs, italicButton.isSelected());
+                setCharacterAttributes(currentTextPane, attrs, false);
+            }
+        }
+    }
+
+    private void setUnderline() {
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null) {
+                JTextPane currentTextPane = currentDoc.getTextPane();
+                MutableAttributeSet attrs = new SimpleAttributeSet();
+                StyleConstants.setUnderline(attrs, underlineButton.isSelected());
+                setCharacterAttributes(currentTextPane, attrs, false);
+            }
+        }
+    }
+
+    private void setAlignment(int alignment) {
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null) {
+                JTextPane currentTextPane = currentDoc.getTextPane();
+                StyledDocument doc = currentTextPane.getStyledDocument();
+                SimpleAttributeSet attrs = new SimpleAttributeSet();
+                StyleConstants.setAlignment(attrs, alignment);
+                doc.setParagraphAttributes(0, doc.getLength(), attrs, false);
+            }
+        }
+    }
+
+    private void setSelectedFont() {
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null) {
+                JTextPane currentTextPane = currentDoc.getTextPane();
+                String fontName = (String) fontComboBox.getSelectedItem();
+                setFontFamily(currentTextPane, fontName);
+            }
+        }
+    }
+
+    private void setSelectedFontSize() {
+        JInternalFrame currentFrame = desktopPane.getSelectedFrame();
+        if (currentFrame != null) {
+            TextDocument currentDoc = getDocumentFromFrame(currentFrame);
+            if (currentDoc != null) {
+                JTextPane currentTextPane = currentDoc.getTextPane();
+                try {
+                    int fontSize = Integer.parseInt((String) fontSizeComboBox.getSelectedItem());
+                    setFontSize(currentTextPane, fontSize);
                 } catch (NumberFormatException e) {
                     JOptionPane.showMessageDialog(this, "请输入有效的字体大小！");
                 }
@@ -314,404 +647,100 @@ public class TextEditor extends JFrame {
         }
     }
 
-    /**
-     * 设置对齐方式
-     */
-    private void setAlignment(int alignment) {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            JTextPane currentTextPane = documents.get(currentIndex).getTextPane();
-            StyledDocument doc = currentTextPane.getStyledDocument();
-            SimpleAttributeSet attrs = new SimpleAttributeSet();
-            StyleConstants.setAlignment(attrs, alignment);
-            doc.setParagraphAttributes(currentTextPane.getSelectionStart(), currentTextPane.getSelectionEnd() - currentTextPane.getSelectionStart(), attrs, false);
-        }
-    }
-
-    /**
-     * 查找文本
-     */
-    private void findText() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            JTextPane currentTextPane = documents.get(currentIndex).getTextPane();
-            String searchText = JOptionPane.showInputDialog("输入查找的文本：");
-            if (searchText != null) {
-                String content = currentTextPane.getText();
-                int index = content.indexOf(searchText);
-                if (index >= 0) {
-                    currentTextPane.select(index, index + searchText.length());
-                } else {
-                    JOptionPane.showMessageDialog(this, "未找到文本！");
-                }
-            }
-        }
-    }
-
-    /**
-     * 替换文本
-     */
-    private void replaceText() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            JTextPane currentTextPane = documents.get(currentIndex).getTextPane();
-            String searchText = JOptionPane.showInputDialog("输入查找的文本：");
-            String replaceText = JOptionPane.showInputDialog("输入替换的文本：");
-            if (searchText != null && replaceText != null) {
-                String content = currentTextPane.getText();
-                content = content.replace(searchText, replaceText);
-                currentTextPane.setText(content);
-            }
-        }
-    }
-
-    /**
-     * 设置字符属性
-     */
-    private void setCharacterAttributes(JTextPane pane, AttributeSet attrs, boolean replace) {
-        int start = pane.getSelectionStart();
-        int end = pane.getSelectionEnd();
-        if (start != end) {
-            StyledDocument doc = pane.getStyledDocument();
-            doc.setCharacterAttributes(start, end - start, attrs, replace);
-        }
-    }
-
-    /**
-     * 主方法，启动应用程序
-     */
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            TextEditor editor = new TextEditor();
-            editor.setVisible(true);
-        });
-    }
-
-    /**
-     * 内部类：表示单个文本文档
-     */
-    private class TextDocument {
-        private JTextPane textPane;
-        private UndoManager undoManager;
-
-        public TextDocument() {
-            textPane = new JTextPane();
-            undoManager = new UndoManager();
-            textPane.getDocument().addUndoableEditListener(undoManager);
-        }
-
-        public JTextPane getTextPane() {
-            return textPane;
-        }
-
-        public UndoManager getUndoManager() {
-            return undoManager;
-        }
-
-        /**
-         * 从文件加载内容
-         */
-        public void loadFile(File file) throws IOException {
-            try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-                textPane.setText("");
-                String line;
-                while ((line = br.readLine()) != null) {
-                    textPane.getDocument().insertString(textPane.getDocument().getLength(), line + "\n", null);
-                }
-            } catch (BadLocationException e) {
-                throw new IOException("文件读取错误", e);
-            }
-        }
-
-        /**
-         * 保存内容到文件
-         */
-        public void saveFile(File file) throws IOException {
-            try (BufferedWriter bw = new BufferedWriter(new FileWriter(file))) {
-                bw.write(textPane.getText());
-            }
-        }
-    }
-
-    /**
-     * 创建工具栏
-     */
-    private void createToolBar() {
-        JToolBar toolBar = new JToolBar();
-        toolBar.setFloatable(false);
-        toolBar.setBorder(new EmptyBorder(5, 5, 5, 5));
-
-        // 新建、打开、保存按钮
-        toolBar.add(createToolBarButton("src/icons/new.png", e -> newDocument(), "新建文档"));
-        toolBar.add(createToolBarButton("src/icons/open.png", e -> openDocument(), "打开文档"));
-        toolBar.add(createToolBarButton("src/icons/save.png", e -> saveDocument(), "保存文档"));
-
-        toolBar.addSeparator();
-
-        // 复制、剪切、粘贴按钮
-        toolBar.add(createToolBarButton("src/icons/copy.png", e -> copy(), "复制"));
-        toolBar.add(createToolBarButton("src/icons/cut.png", e -> cut(), "剪切"));
-        toolBar.add(createToolBarButton("src/icons/paste.png", e -> paste(), "粘贴"));
-
-        toolBar.addSeparator();
-
-        // 撤销、重做按钮
-        toolBar.add(createToolBarButton("src/icons/undo.png", e -> undo(), "撤销"));
-        toolBar.add(createToolBarButton("src/icons/redo.png", e -> redo(), "重做"));
-
-        toolBar.addSeparator();
-
-        // 查找、替换按钮
-        toolBar.add(createToolBarButton("src/icons/find.png", e -> findText(), "查找"));
-        toolBar.add(createToolBarButton("src/icons/replace.png", e -> replaceText(), "替换"));
-
-        toolBar.addSeparator();
-
-        // 字体选择
-        toolBar.add(new JLabel(createScaledImageIcon("src/icons/font.png", 24, 24)));
-        String[] fonts = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
-        fontComboBox = new JComboBox<>(fonts);
-        fontComboBox.setEditable(true);
-        fontComboBox.setMaximumSize(new Dimension(150, 30));
-        fontComboBox.addActionListener(e -> setSelectedFont());
-        toolBar.add(fontComboBox);
-
-        // 字体大小选择
-        toolBar.add(new JLabel(createScaledImageIcon("src/icons/font_size.png", 24, 24)));
-        String[] sizes = {"8", "9", "10", "11", "12", "14", "16", "18", "20", "22", "24", "26", "28", "36", "48", "72"};
-        fontSizeComboBox = new JComboBox<>(sizes);
-        fontSizeComboBox.setEditable(true);
-        fontSizeComboBox.setMaximumSize(new Dimension(80, 30));
-        fontSizeComboBox.addActionListener(e -> setSelectedFontSize());
-        toolBar.add(fontSizeComboBox);
-
-        toolBar.addSeparator();
-
-        // 加粗、斜体、下划线按钮
-        boldButton = createToolBarToggleButton("src/icons/bold.png", e -> setBold(), "粗体");
-        toolBar.add(boldButton);
-        italicButton = createToolBarToggleButton("src/icons/italic.png", e -> setItalic(), "斜体");
-        toolBar.add(italicButton);
-        underlineButton = createToolBarToggleButton("src/icons/underline.png", e -> setUnderline(), "下划线");
-        toolBar.add(underlineButton);
-
-        toolBar.addSeparator();
-
-        // 对齐方式按钮
-        leftAlignButton = createToolBarToggleButton("src/icons/align_left.png", e -> setAlignment(StyleConstants.ALIGN_LEFT), "左对齐");
-        toolBar.add(leftAlignButton);
-        centerAlignButton = createToolBarToggleButton("src/icons/align_center.png", e -> setAlignment(StyleConstants.ALIGN_CENTER), "居中对齐");
-        toolBar.add(centerAlignButton);
-        rightAlignButton = createToolBarToggleButton("src/icons/align_right.png", e -> setAlignment(StyleConstants.ALIGN_RIGHT), "右对齐");
-        toolBar.add(rightAlignButton);
-
-        // 创建一个按钮组，确保只有一个对齐按钮被选中
-        ButtonGroup alignmentGroup = new ButtonGroup();
-        alignmentGroup.add(leftAlignButton);
-        alignmentGroup.add(centerAlignButton);
-        alignmentGroup.add(rightAlignButton);
-
-        add(toolBar, BorderLayout.NORTH);
-    }
-
-    private JButton createToolBarButton(String iconPath, ActionListener action, String toolTipText) {
-        ImageIcon icon = new ImageIcon(iconPath);
-        Image img = icon.getImage().getScaledInstance(16, 16, Image.SCALE_SMOOTH);
-        JButton button = new JButton(new ImageIcon(img));
-        button.setFocusPainted(false);
-        button.addActionListener(action);
-        button.setToolTipText(toolTipText);
-        return button;
-    }
-
-    private JToggleButton createToolBarToggleButton(String iconPath, ActionListener action, String toolTipText) {
-        ImageIcon icon = new ImageIcon(iconPath);
-        Image img = icon.getImage().getScaledInstance(16, 16, Image.SCALE_SMOOTH);
-        JToggleButton button = new JToggleButton(new ImageIcon(img));
-        button.setFocusPainted(false);
-        button.addActionListener(action);
-        button.setToolTipText(toolTipText);
-        return button;
-    }
-
-    private ImageIcon createScaledImageIcon(String path, int width, int height) {
-        ImageIcon icon = new ImageIcon(path);
-        Image img = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
-        return new ImageIcon(img);
-    }
-
-    /**
-     * 设置选中的字体
-     */
-    private void setSelectedFont() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            JTextPane currentTextPane = documents.get(currentIndex).getTextPane();
-            String fontName = (String) fontComboBox.getSelectedItem();
-            setFontFamily(currentTextPane, fontName);
-        }
-    }
-
-    /**
-     * 设置选中的字体大小
-     */
-    private void setSelectedFontSize() {
-        int currentIndex = tabbedPane.getSelectedIndex();
-        if (currentIndex != -1) {
-            JTextPane currentTextPane = documents.get(currentIndex).getTextPane();
-            try {
-                int fontSize = Integer.parseInt((String) fontSizeComboBox.getSelectedItem());
-                setFontSize(currentTextPane, fontSize);
-            } catch (NumberFormatException e) {
-                JOptionPane.showMessageDialog(this, "请输入有效的字体大小！");
-            }
-        }
-    }
-
-    /**
-     * 获取当前字体名称
-     */
-    private String getCurrentFontFamily(JTextPane textPane) {
-        Font font = textPane.getFont();
-        return font != null ? font.getFamily() : Font.SANS_SERIF;
-    }
-
-    /**
-     * 获取当前字体大小
-     */
-    private int getCurrentFontSize(JTextPane textPane) {
-        Font font = textPane.getFont();
-        return font != null ? font.getSize() : 12;
-    }
-
-    /**
-     * 设置字体名称
-     */
     private void setFontFamily(JTextPane textPane, String fontName) {
         MutableAttributeSet attrs = new SimpleAttributeSet();
         StyleConstants.setFontFamily(attrs, fontName);
         setCharacterAttributes(textPane, attrs, false);
     }
 
-    /**
-     * 设置字体大小
-     */
     private void setFontSize(JTextPane textPane, int fontSize) {
         MutableAttributeSet attrs = new SimpleAttributeSet();
         StyleConstants.setFontSize(attrs, fontSize);
         setCharacterAttributes(textPane, attrs, false);
     }
 
-    /**
-     * 内部类：自定义标签页组件
-     */
-    private class TabComponent extends JPanel {
-        private final JLabel label;
-        private final CloseButton closeButton;
-
-        public TabComponent(final JTabbedPane pane) {
-            super(new FlowLayout(FlowLayout.LEFT, 0, 0));
-            setOpaque(false);
-            
-            label = new JLabel() {
-                public String getText() {
-                    int i = pane.indexOfTabComponent(TabComponent.this);
-                    if (i != -1) {
-                        return pane.getTitleAt(i);
-                    }
-                    return null;
-                }
-            };
-            add(label);
-            
-            closeButton = new CloseButton();
-            add(closeButton);
+    private void setCharacterAttributes(JTextPane textPane, AttributeSet attrs, boolean replace) {
+        int start = textPane.getSelectionStart();
+        int end = textPane.getSelectionEnd();
+        if (start != end) {
+            textPane.getStyledDocument().setCharacterAttributes(start, end - start, attrs, replace);
+        } else {
+            MutableAttributeSet attribute = new SimpleAttributeSet(attrs);
+            textPane.setCharacterAttributes(attribute, replace);
         }
+    }
 
-        /**
-         * 内部类：关闭按钮
-         */
-        private class CloseButton extends JButton implements MouseListener {
-            private boolean mouseOver = false;
-            private boolean mousePressed = false;
-
-            public CloseButton() {
-                setPreferredSize(new Dimension(16, 16));
-                setToolTipText("关闭此标签页");
-                setContentAreaFilled(false);
-                setBorderPainted(false);
-                setFocusable(false);
-                setBorder(BorderFactory.createEmptyBorder(0, 3, 0, 0));
-                addMouseListener(this);
-                setRolloverEnabled(true);
-            }
-
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                
-                if (mousePressed && mouseOver) {
-                    g2.setColor(Color.RED.darker());
-                } else if (mouseOver) {
-                    g2.setColor(Color.RED);
-                } else {
-                    g2.setColor(Color.GRAY);
-                }
-                
-                int size = Math.min(getWidth(), getHeight()) - 6;
-                int x = (getWidth() - size) / 2;
-                int y = (getHeight() - size) / 2;
-                
-                if (mouseOver) {
-                    // 绘制小叉叉
-                    g2.setStroke(new BasicStroke(1.5f));
-                    int margin = size / 4;
-                    g2.drawLine(x + margin, y + margin, x + size - margin, y + size - margin);
-                    g2.drawLine(x + size - margin, y + margin, x + margin, y + size - margin);
-                } else {
-                    // 绘制小圆圈
-                    g2.drawOval(x, y, size, size);
-                }
-                g2.dispose();
-            }
-
-            public void mouseClicked(MouseEvent e) {
-                int i = tabbedPane.indexOfTabComponent(TabComponent.this);
-                if (i != -1) {
-                    closeDocument(i);
-                }
-            }
-
-            public void mousePressed(MouseEvent e) {
-                mousePressed = true;
-                repaint();
-            }
-
-            public void mouseReleased(MouseEvent e) {
-                mousePressed = false;
-                repaint();
-            }
-
-            public void mouseEntered(MouseEvent e) {
-                mouseOver = true;
-                repaint();
-            }
-
-            public void mouseExited(MouseEvent e) {
-                mouseOver = false;
-                repaint();
+    private void cascadeWindows() {
+        int x = 0, y = 0;
+        for (JInternalFrame frame : desktopPane.getAllFrames()) {
+            if (frame.isIcon()) continue;
+            try {
+                frame.setMaximum(false);
+                frame.reshape(x, y, 400, 300);
+                x += 30;
+                y += 30;
+                if (x + 400 > getWidth()) x = 0;
+                if (y + 300 > getHeight()) y = 0;
+                frame.toFront();
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }
 
-    /**
-     * 设置快捷键
-     */
+    private void tileWindowsHorizontally() {
+        JInternalFrame[] frames = desktopPane.getAllFrames();
+        int count = frames.length;
+        if (count == 0) return;
+
+        int rows = (int) Math.sqrt(count);
+        int cols = count / rows;
+        if (count % rows != 0) cols++;
+
+        int width = getWidth() / cols;
+        int height = getHeight() / rows;
+        int x = 0, y = 0;
+
+        for (JInternalFrame frame : frames) {
+            if (frame.isIcon()) continue;
+            try {
+                frame.setMaximum(false);
+                frame.reshape(x, y, width, height);
+                x += width;
+                if (x >= getWidth()) {
+                    x = 0;
+                    y += height;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void tileWindowsVertically() {
+        JInternalFrame[] frames = desktopPane.getAllFrames();
+        int count = frames.length;
+        if (count == 0) return;
+
+        int height = getHeight() / count;
+        int y = 0;
+
+        for (JInternalFrame frame : frames) {
+            if (frame.isIcon()) continue;
+            try {
+                frame.setMaximum(false);
+                frame.reshape(0, y, getWidth(), height);
+                y += height;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     private void setupShortcuts() {
-        // 创建动作映射
-        InputMap inputMap = getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
-        ActionMap actionMap = getRootPane().getActionMap();
+        JRootPane rootPane = getRootPane();
+        InputMap inputMap = rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap actionMap = rootPane.getActionMap();
 
         // 新建文档 - Ctrl+N
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK), "newDocument");
@@ -740,12 +769,21 @@ public class TextEditor extends JFrame {
             }
         });
 
+        // 另存为 - Ctrl+Shift+S
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), "saveAsDocument");
+        actionMap.put("saveAsDocument", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                saveAsDocument();
+            }
+        });
+
         // 关闭当前文档 - Ctrl+W
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, InputEvent.CTRL_DOWN_MASK), "closeDocument");
         actionMap.put("closeDocument", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                closeDocument(tabbedPane.getSelectedIndex());
+                closeDocument();
             }
         });
 
@@ -767,18 +805,17 @@ public class TextEditor extends JFrame {
             }
         });
 
-        // 切换标签页 - Ctrl+Tab
-        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_TAB, InputEvent.CTRL_DOWN_MASK), "nextTab");
-        actionMap.put("nextTab", new AbstractAction() {
+        // 关闭所有文档 - Ctrl+Shift+Q
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Q, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), "closeAllDocuments");
+        actionMap.put("closeAllDocuments", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                int selectedIndex = tabbedPane.getSelectedIndex();
-                if (selectedIndex < tabbedPane.getTabCount() - 1) {
-                    tabbedPane.setSelectedIndex(selectedIndex + 1);
-                } else {
-                    tabbedPane.setSelectedIndex(0);
-                }
+                closeAllDocuments();
             }
         });
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new TextEditor().setVisible(true));
     }
 }
