@@ -26,6 +26,10 @@ public class TextEditor extends JFrame {
         setSize(1080, 720);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
+        // 设置应用程序图标
+        ImageIcon icon = new ImageIcon("src/icons/app_icon.png");
+        setIconImage(icon.getImage());
+
         documents = new ArrayList<>();
         tabbedPane = new JTabbedPane();
         tabbedPane.addMouseListener(new MouseAdapter() {
