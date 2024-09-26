@@ -544,7 +544,7 @@ public class TextEditor extends JFrame {
         if (currentIndex != -1) {
             JTextPane currentTextPane = documents.get(currentIndex).getTextPane();
             String fontName = (String) fontComboBox.getSelectedItem();
-            setFont(currentTextPane, fontName, getCurrentFontSize(currentTextPane));
+            setFontFamily(currentTextPane, fontName);
         }
     }
 
@@ -557,7 +557,7 @@ public class TextEditor extends JFrame {
             JTextPane currentTextPane = documents.get(currentIndex).getTextPane();
             try {
                 int fontSize = Integer.parseInt((String) fontSizeComboBox.getSelectedItem());
-                setFont(currentTextPane, getCurrentFontFamily(currentTextPane), fontSize);
+                setFontSize(currentTextPane, fontSize);
             } catch (NumberFormatException e) {
                 JOptionPane.showMessageDialog(this, "请输入有效的字体大小！");
             }
@@ -581,12 +581,19 @@ public class TextEditor extends JFrame {
     }
 
     /**
-     * 设置字体和大小
+     * 设置字体名称
      */
-    private void setFont(JTextPane textPane, String fontName, int fontSize) {
-        Font font = new Font(fontName, Font.PLAIN, fontSize);
+    private void setFontFamily(JTextPane textPane, String fontName) {
         MutableAttributeSet attrs = new SimpleAttributeSet();
         StyleConstants.setFontFamily(attrs, fontName);
+        setCharacterAttributes(textPane, attrs, false);
+    }
+
+    /**
+     * 设置字体大小
+     */
+    private void setFontSize(JTextPane textPane, int fontSize) {
+        MutableAttributeSet attrs = new SimpleAttributeSet();
         StyleConstants.setFontSize(attrs, fontSize);
         setCharacterAttributes(textPane, attrs, false);
     }
