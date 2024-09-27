@@ -17,20 +17,20 @@ public class AdvancedFindDialog extends JDialog {
     private JButton replaceButton;
     private JButton replaceAllButton;
     private JButton clearHighlightButton;
-    private List<JTextPane> textPanes;
+    private List<DocumentFrame> documentFrames;
     private ArrayList<Integer> allMatchPositions;
     private int currentMatchIndex;
 
-    public AdvancedFindDialog(JFrame parent, List<JTextPane> textPanes, List<String> documentTitles) {
+    public AdvancedFindDialog(TextEditor parent, List<DocumentFrame> documentFrames) {
         super(parent, "高级查找和替换", false);
-        this.textPanes = textPanes;
-        initComponents(documentTitles);
-        setPreferredSize(new Dimension(600, 300)); // 增加窗口大小
+        this.documentFrames = documentFrames;
+        initComponents();
+        setPreferredSize(new Dimension(600, 300));
         pack();
         setLocationRelativeTo(parent);
     }
 
-    private void initComponents(List<String> documentTitles) {
+    private void initComponents() {
         setLayout(new BorderLayout(10, 10));
 
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
@@ -41,6 +41,10 @@ public class AdvancedFindDialog extends JDialog {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(5, 5, 5, 5);
 
+        List<String> documentTitles = new ArrayList<>();
+        for (DocumentFrame frame : documentFrames) {
+            documentTitles.add(frame.getTitle());
+        }
         documentSelector = new JComboBox<>(documentTitles.toArray(new String[0]));
         searchField = new JTextField(30);
         replaceField = new JTextField(30);
@@ -122,7 +126,7 @@ public class AdvancedFindDialog extends JDialog {
 
     private JTextPane getCurrentTextPane() {
         int selectedIndex = documentSelector.getSelectedIndex();
-        return textPanes.get(selectedIndex);
+        return documentFrames.get(selectedIndex).getTextPane();
     }
 
     private void findNext() {
