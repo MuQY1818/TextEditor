@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import javax.swing.event.InternalFrameAdapter;
 import javax.swing.event.InternalFrameEvent;
 import javax.swing.border.Border;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class TextEditor extends JFrame {
@@ -16,6 +18,7 @@ public class TextEditor extends JFrame {
     private JComboBox<String> fontSizeComboBox;
     private JToggleButton boldButton, italicButton, underlineButton;
     private JToggleButton leftAlignButton, centerAlignButton, rightAlignButton;
+    private int newDocumentCounter = 1;
 
     private enum WindowArrangement {
         CASCADE,
@@ -115,8 +118,7 @@ public class TextEditor extends JFrame {
         editMenu.add(createMenuItem("复制", e -> copy()));
         editMenu.add(createMenuItem("粘贴", e -> paste()));
         editMenu.add(createMenuItem("剪切", e -> cut()));
-        editMenu.add(createMenuItem("查找", e -> findText()));
-        editMenu.add(createMenuItem("替换", e -> replaceText()));
+        editMenu.add(createMenuItem("查找", KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK, e -> showFindDialog()));
         menuBar.add(editMenu);
 
         // 格式菜单
@@ -212,14 +214,9 @@ public class TextEditor extends JFrame {
         
         // 查找按钮
         JButton findButton = createButton("src/icons/find.png", "查找");
-        findButton.addActionListener(e -> findText());
+        findButton.addActionListener(e -> showFindDialog());
         toolBar.add(findButton);
 
-        // 替换按钮
-        JButton replaceButton = createButton("src/icons/replace.png", "替换");
-        replaceButton.addActionListener(e -> replaceText());
-        toolBar.add(replaceButton);
-        
         toolBar.addSeparator();
         // 撤销按钮
         JButton undoButton = createButton("src/icons/undo.png", "撤销");
@@ -293,7 +290,15 @@ public class TextEditor extends JFrame {
     private void newDocument() {
         TextDocument doc = new TextDocument();
         documents.add(doc);
-        JInternalFrame iframe = new JInternalFrame("新文档 " + documents.size(), true, true, true, true);
+        
+        // 寻找可用的文档编号
+        String title;
+        do {
+            title = "新文档 " + newDocumentCounter;
+            newDocumentCounter++;
+        } while (isDocumentTitleExist(title));
+
+        JInternalFrame iframe = new JInternalFrame(title, true, true, true, true);
         iframe.add(new JScrollPane(doc.getTextPane()));
         iframe.setSize(400, 300);
         iframe.setVisible(true);
@@ -314,16 +319,34 @@ public class TextEditor extends JFrame {
             e.printStackTrace();
         }
         
-        // 应用当前的窗口排列
-        applyCurrentArrangement();
+        // 只在非堆叠模式下应用当前的窗口排列
+        if (currentArrangement != WindowArrangement.CASCADE) {
+            applyCurrentArrangement();
+        } else {
+            // 在堆叠模式下，为新窗口设置一个偏移位置
+            positionNewWindow(iframe);
+        }
     }
-    
+
+    // 新增：检查文档标题是否已存在
+    private boolean isDocumentTitleExist(String title) {
+        for (JInternalFrame frame : desktopPane.getAllFrames()) {
+            if (frame.getTitle().equals(title)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void closeDocument() {
         JInternalFrame currentFrame = desktopPane.getSelectedFrame();
         if (currentFrame != null) {
             closeDocument(currentFrame);
         }
-        applyCurrentArrangement();
+        // 只在非堆叠模式下应用当前的窗口排列
+        if (currentArrangement != WindowArrangement.CASCADE) {
+            applyCurrentArrangement();
+        }
     }
     
     private void saveAsDocument() {
@@ -378,7 +401,10 @@ public class TextEditor extends JFrame {
         } else {
             System.out.println("没有选中的文档");
         }
-        applyCurrentArrangement();
+        // 只在非堆叠模式下应用当前的窗口排列
+        if (currentArrangement != WindowArrangement.CASCADE) {
+            applyCurrentArrangement();
+        }
     }
     
     private void openDocument() {
@@ -410,11 +436,18 @@ public class TextEditor extends JFrame {
                 } catch (java.beans.PropertyVetoException e) {
                     e.printStackTrace();
                 }
+
+                // 只在非堆叠模式下应用当前的窗口排列
+                if (currentArrangement != WindowArrangement.CASCADE) {
+                    applyCurrentArrangement();
+                } else {
+                    // 在堆叠模式下，为新窗口设置一个偏移位置
+                    positionNewWindow(iframe);
+                }
             } catch (IOException e) {
                 JOptionPane.showMessageDialog(this, "无法打开文件：" + e.getMessage());
             }
         }
-        applyCurrentArrangement();
     }
 
     private void saveDocument(JInternalFrame frame) {
@@ -660,6 +693,24 @@ public class TextEditor extends JFrame {
         }
     }
 
+    private void showFindDialog() {
+        List<JTextPane> textPanes = new ArrayList<>();
+        List<String> documentTitles = new ArrayList<>();
+        for (JInternalFrame frame : desktopPane.getAllFrames()) {
+            TextDocument doc = getDocumentFromFrame(frame);
+            if (doc != null) {
+                textPanes.add(doc.getTextPane());
+                documentTitles.add(frame.getTitle());
+            }
+        }
+        if (!textPanes.isEmpty()) {
+            AdvancedFindDialog dialog = new AdvancedFindDialog(this, textPanes, documentTitles);
+            dialog.setVisible(true);
+        } else {
+            JOptionPane.showMessageDialog(this, "没有打开的文档。");
+        }
+    }
+
     private void setFontFamily(JTextPane textPane, String fontName) {
         MutableAttributeSet attrs = new SimpleAttributeSet();
         StyleConstants.setFontFamily(attrs, fontName);
@@ -767,6 +818,31 @@ public class TextEditor extends JFrame {
         }
     }
 
+
+
+    private void positionNewWindow(JInternalFrame newFrame) {
+        int offset = 30;
+        int x = 0, y = 0;
+        boolean positionFound = false;
+
+        while (!positionFound) {
+            positionFound = true;
+            for (JInternalFrame frame : desktopPane.getAllFrames()) {
+                if (frame != newFrame && !frame.isIcon() &&
+                    frame.getX() == x && frame.getY() == y) {
+                    x += offset;
+                    y += offset;
+                    if (x + newFrame.getWidth() > desktopPane.getWidth()) x = 0;
+                    if (y + newFrame.getHeight() > desktopPane.getHeight()) y = 0;
+                    positionFound = false;
+                    break;
+                }
+            }
+        }
+
+        newFrame.setLocation(x, y);
+    }
+
     private void setupShortcuts() {
         JRootPane rootPane = getRootPane();
         InputMap inputMap = rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
@@ -841,6 +917,15 @@ public class TextEditor extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 closeAllDocuments();
+            }
+        });
+
+        // 查找 - Ctrl+F
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK), "showFindDialog");
+        actionMap.put("showFindDialog", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showFindDialog();
             }
         });
     }
