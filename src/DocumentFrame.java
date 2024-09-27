@@ -2,8 +2,6 @@ import javax.swing.*;
 import javax.swing.event.*;
 import javax.swing.text.*;
 import javax.swing.undo.UndoManager;
-import java.awt.*;
-import java.awt.event.*;
 import java.io.*;
 
 public class DocumentFrame extends JInternalFrame {
