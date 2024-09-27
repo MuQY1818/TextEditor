@@ -1,22 +1,43 @@
 import javax.swing.*;
 
+/**
+ * 窗口管理器类用于管理文本编辑器中的窗口排列和定位
+ */
 public class WindowManager {
-    private TextEditor editor;
-    private JDesktopPane desktopPane;
+    // 文本编辑器实例
+    private final TextEditor editor;
+    // 桌面窗格，用于容纳内部框架
+    private final JDesktopPane desktopPane;
 
+    /**
+     * 窗口排列方式枚举
+     */
     public enum WindowArrangement {
+        // 以瀑布方式排列窗口
         CASCADE,
+        // 水平平铺窗口
         TILE_HORIZONTAL,
+        // 垂直平铺窗口
         TILE_VERTICAL
     }
 
+    // 当前的窗口排列方式，默认为CASCADE
     private WindowArrangement currentArrangement = WindowArrangement.CASCADE;
 
+    /**
+     * 构造函数，初始化窗口管理器
+     *
+     * @param editor      文本编辑器实例
+     * @param desktopPane 桌面窗格实例
+     */
     public WindowManager(TextEditor editor, JDesktopPane desktopPane) {
         this.editor = editor;
         this.desktopPane = desktopPane;
     }
 
+    /**
+     * 以瀑布方式排列窗口
+     */
     public void cascadeWindows() {
         currentArrangement = WindowArrangement.CASCADE;
         int x = 0, y = 0;
@@ -36,6 +57,9 @@ public class WindowManager {
         }
     }
 
+    /**
+     * 水平平铺窗口
+     */
     public void tileWindowsHorizontally() {
         currentArrangement = WindowArrangement.TILE_HORIZONTAL;
         JInternalFrame[] frames = desktopPane.getAllFrames();
@@ -66,6 +90,9 @@ public class WindowManager {
         }
     }
 
+    /**
+     * 垂直平铺窗口
+     */
     public void tileWindowsVertically() {
         currentArrangement = WindowArrangement.TILE_VERTICAL;
         JInternalFrame[] frames = desktopPane.getAllFrames();
@@ -87,6 +114,11 @@ public class WindowManager {
         }
     }
 
+    /**
+     * 为新窗口定位，根据当前的排列方式
+     *
+     * @param newFrame 新的内部框架
+     */
     public void positionNewWindow(JInternalFrame newFrame) {
         if (currentArrangement != WindowArrangement.CASCADE) {
             applyCurrentArrangement();
@@ -114,6 +146,9 @@ public class WindowManager {
         }
     }
 
+    /**
+     * 应用当前的窗口排列方式
+     */
     private void applyCurrentArrangement() {
         switch (currentArrangement) {
             case CASCADE:

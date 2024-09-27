@@ -2,13 +2,24 @@ import javax.swing.*;
 import java.awt.event.*;
 import javax.swing.text.StyleConstants;
 
+/**
+ * 菜单管理器类，负责创建和管理文本编辑器的菜单栏
+ */
 public class MenuManager {
-    private TextEditor editor;
+    private final TextEditor editor; // 文本编辑器实例
 
+    /**
+     * 构造函数，初始化菜单管理器
+     * @param editor 文本编辑器实例，用于菜单操作
+     */
     public MenuManager(TextEditor editor) {
         this.editor = editor;
     }
 
+    /**
+     * 创建并返回菜单栏
+     * @return JMenuBar 实例，包含文件、编辑、格式和窗口菜单
+     */
     public JMenuBar createMenuBar() {
         JMenuBar menuBar = new JMenuBar();
         menuBar.add(createFileMenu());
@@ -18,6 +29,10 @@ public class MenuManager {
         return menuBar;
     }
 
+    /**
+     * 创建文件菜单
+     * @return JMenu 实例，包含文件相关操作的菜单项
+     */
     private JMenu createFileMenu() {
         JMenu fileMenu = new JMenu("文件");
         fileMenu.add(createMenuItem("新建文档", KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK, e -> editor.newDocument()));
@@ -29,6 +44,10 @@ public class MenuManager {
         return fileMenu;
     }
 
+    /**
+     * 创建编辑菜单
+     * @return JMenu 实例，包含编辑相关操作的菜单项
+     */
     private JMenu createEditMenu() {
         JMenu editMenu = new JMenu("编辑");
         editMenu.add(createMenuItem("撤销", KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK, e -> getSelectedFrame().undo()));
@@ -40,6 +59,10 @@ public class MenuManager {
         return editMenu;
     }
 
+    /**
+     * 创建格式菜单
+     * @return JMenu 实例，包含格式相关操作的菜单项
+     */
     private JMenu createFormatMenu() {
         JMenu formatMenu = new JMenu("格式");
         formatMenu.add(createMenuItem("设置粗体", e -> getSelectedFrame().setBold(true)));
@@ -51,6 +74,10 @@ public class MenuManager {
         return formatMenu;
     }
 
+    /**
+     * 创建窗口菜单
+     * @return JMenu 实例，包含窗口相关操作的菜单项
+     */
     private JMenu createWindowMenu() {
         JMenu windowMenu = new JMenu("窗口");
         windowMenu.add(createMenuItem("窗口层叠", e -> editor.getWindowManager().cascadeWindows()));
@@ -59,6 +86,14 @@ public class MenuManager {
         return windowMenu;
     }
 
+    /**
+     * 创建菜单项
+     * @param title 菜单项显示的文本
+     * @param keyCode 键盘快捷键的键码
+     * @param modifiers 快捷键的修饰符（如Ctrl键）
+     * @param action 菜单项被点击时执行的动作
+     * @return JMenuItem 实例，包含指定的文本、快捷键和动作
+     */
     private JMenuItem createMenuItem(String title, int keyCode, int modifiers, ActionListener action) {
         JMenuItem menuItem = new JMenuItem(title);
         menuItem.setAccelerator(KeyStroke.getKeyStroke(keyCode, modifiers));
@@ -66,12 +101,22 @@ public class MenuManager {
         return menuItem;
     }
 
+    /**
+     * 创建菜单项
+     * @param title 菜单项显示的文本
+     * @param action 菜单项被点击时执行的动作
+     * @return JMenuItem 实例，包含指定的文本和动作
+     */
     private JMenuItem createMenuItem(String title, ActionListener action) {
         JMenuItem menuItem = new JMenuItem(title);
         menuItem.addActionListener(action);
         return menuItem;
     }
 
+    /**
+     * 获取当前选中的文档框架
+     * @return DocumentFrame 实例，为当前选中的文档框架
+     */
     private DocumentFrame getSelectedFrame() {
         return (DocumentFrame) editor.getDesktopPane().getSelectedFrame();
     }
