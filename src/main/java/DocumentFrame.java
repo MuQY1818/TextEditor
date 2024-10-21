@@ -1,8 +1,19 @@
-import javax.swing.*;
-import javax.swing.event.*;
-import javax.swing.text.*;
+import java.io.File;
+import java.io.IOException;
+
+import javax.swing.JFileChooser;
+import javax.swing.JInternalFrame;
+import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
+import javax.swing.JTextPane;
+import javax.swing.event.InternalFrameAdapter;
+import javax.swing.event.InternalFrameEvent;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.MutableAttributeSet;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 import javax.swing.undo.UndoManager;
-import java.io.*;
 
 /**
  * DocumentFrame 类表示文本编辑器中的一个文档窗口。
@@ -44,6 +55,15 @@ public class DocumentFrame extends JInternalFrame {
 
         setSize(400, 300);
         setVisible(true);
+    }
+
+    /**
+     * 在当前光标位置插入文本。
+     *
+     * @param text 要插入的文本
+     */
+    public void insertText(String text) {
+        textPane.replaceSelection(text);
     }
 
     /**

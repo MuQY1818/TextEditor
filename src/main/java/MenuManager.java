@@ -1,5 +1,11 @@
-import javax.swing.*;
-import java.awt.event.*;
+import java.awt.event.ActionListener;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
+
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.KeyStroke;
 import javax.swing.text.StyleConstants;
 
 /**
@@ -56,6 +62,7 @@ public class MenuManager {
         editMenu.add(createMenuItem("粘贴", KeyEvent.VK_V, InputEvent.CTRL_DOWN_MASK, e -> getSelectedFrame().paste()));
         editMenu.add(createMenuItem("剪切", KeyEvent.VK_X, InputEvent.CTRL_DOWN_MASK, e -> getSelectedFrame().cut()));
         editMenu.add(createMenuItem("查找", KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK, e -> editor.showFindDialog()));
+        editMenu.add(createMenuItem("AI助手", KeyEvent.VK_A, InputEvent.CTRL_DOWN_MASK, e -> editor.showAIAssistantDialog()));
         return editMenu;
     }
 

@@ -1,7 +1,17 @@
-import javax.swing.*;
-import javax.swing.text.StyleConstants;
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GraphicsEnvironment;
+import java.awt.Image;
 import java.awt.event.ActionListener;
+
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JOptionPane;
+import javax.swing.JToggleButton;
+import javax.swing.JToolBar;
+import javax.swing.text.StyleConstants;
 
 public class ToolbarManager {
     // 定义TextEditor实例
@@ -33,6 +43,8 @@ public class ToolbarManager {
         toolBar.addSeparator(); // 添加分隔符
         // 添加字体控制组件
         addFontControls(toolBar);
+        toolBar.addSeparator();
+        addAIButton(toolBar); // 添加 AI 按钮
 
         return toolBar;
     }
@@ -81,7 +93,7 @@ public class ToolbarManager {
         // 居中对齐按钮
         JToggleButton centerAlignButton = createToggleButton("src/icons/align_center.png", "居中对齐", e -> getSelectedFrame().setAlignment(StyleConstants.ALIGN_CENTER));
         // 右对齐按钮
-        JToggleButton rightAlignButton = createToggleButton("src/icons/align_right.png", "右对齐", e -> getSelectedFrame().setAlignment(StyleConstants.ALIGN_RIGHT));
+        JToggleButton rightAlignButton = createToggleButton("src/icons/align_right.png", "右对", e -> getSelectedFrame().setAlignment(StyleConstants.ALIGN_RIGHT));
 
         toolBar.add(boldButton);
         toolBar.add(italicButton);
@@ -121,7 +133,6 @@ public class ToolbarManager {
         JButton button = new JButton(new ImageIcon(scaledImage));
         button.setToolTipText(toolTipText);
         button.addActionListener(action);
-        button.setPreferredSize(new Dimension(24, 24));
         return button;
     }
 
@@ -139,5 +150,15 @@ public class ToolbarManager {
     // 获取当前选中的文档窗口
     private DocumentFrame getSelectedFrame() {
         return (DocumentFrame) editor.getDesktopPane().getSelectedFrame();
+    }
+
+    private void addAIButton(JToolBar toolBar) {
+        JButton aiButton = new JButton("AI");
+        aiButton.setToolTipText("AI助手");
+        aiButton.addActionListener(e -> editor.showAIAssistantDialog());
+        aiButton.setFont(new Font("Arial", Font.BOLD, 14));
+        aiButton.setForeground(Color.BLUE);
+        aiButton.setPreferredSize(new Dimension(40, 40));
+        toolBar.add(aiButton);
     }
 }

@@ -1,8 +1,13 @@
-import javax.swing.*;
-import java.awt.*;
+import java.awt.BorderLayout;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.swing.ImageIcon;
+import javax.swing.JDesktopPane;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
 
 /**
  * TextEditor 类是一个基于 Swing 的多文档界面 (MDI) 文本编辑器。
@@ -154,6 +159,13 @@ public class TextEditor extends JFrame {
     private void setupShortcuts() {
         KeyboardShortcutManager shortcutManager = new KeyboardShortcutManager(this); // 创建快捷键管理器
         shortcutManager.setupShortcuts(); // 设置快捷键
+    }
+
+    /**
+     * 显示AI助手对话框。
+     */
+    public void showAIAssistantDialog() {
+        new AIAssistantDialog(this).setVisible(true);
     }
 
     /**
