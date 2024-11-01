@@ -173,6 +173,21 @@ public class AdvancedFindDialog extends JDialog {
     }
 
     /**
+     * 获取文档内容
+     * @param textPane 文本面板
+     * @return 文档内容
+     */
+    private String getDocumentText(JTextPane textPane) {
+        try {
+            Document doc = textPane.getDocument();
+            return doc.getText(0, doc.getLength());
+        } catch (BadLocationException e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
+
+    /**
      * 执行查找操作
      * @param forward 是否向前查找
      */
@@ -180,9 +195,17 @@ public class AdvancedFindDialog extends JDialog {
         String searchText = searchField.getText();
         if (searchText.isEmpty()) return;
 
-        String content = getCurrentTextPane().getText();
-        int caretPosition = getCurrentTextPane().getCaretPosition();
+        JTextPane textPane = getCurrentTextPane();
+        String content = getDocumentText(textPane);
+        int caretPosition = textPane.getCaretPosition();
         int foundIndex = -1;
+
+        // 如果有选中的文本，调整搜索起始位置
+        if (forward) {
+            caretPosition = textPane.getSelectionEnd();
+        } else {
+            caretPosition = textPane.getSelectionStart();
+        }
 
         if (regexCheckBox.isSelected()) {
             // 使用正则表达式查找
@@ -190,17 +213,30 @@ public class AdvancedFindDialog extends JDialog {
                 Pattern pattern = Pattern.compile(searchText, Pattern.CASE_INSENSITIVE);
                 Matcher matcher = pattern.matcher(content);
                 if (forward) {
+                    // 向前查找
                     if (matcher.find(caretPosition)) {
                         foundIndex = matcher.start();
-                    } else if (matcher.find(0)) {
+                    } else if (matcher.find(0)) { // 从头开始查找
                         foundIndex = matcher.start();
                     }
                 } else {
-                    int lastMatchEnd = -1;
-                    while (matcher.find() && matcher.start() < caretPosition) {
-                        lastMatchEnd = matcher.start();
+                    // 向后查找
+                    int lastMatch = -1;
+                    int searchEndPos = caretPosition;
+                    matcher = pattern.matcher(content.substring(0, searchEndPos));
+                    while (matcher.find()) {
+                        lastMatch = matcher.start();
                     }
-                    foundIndex = lastMatchEnd;
+                    if (lastMatch != -1) {
+                        foundIndex = lastMatch;
+                    } else {
+                        // 如果在当前位置之前没找到，则从文档末尾开始搜索
+                        matcher = pattern.matcher(content);
+                        while (matcher.find()) {
+                            lastMatch = matcher.start();
+                        }
+                        foundIndex = lastMatch;
+                    }
                 }
             } catch (PatternSyntaxException ex) {
                 JOptionPane.showMessageDialog(this, "无效的正则表达式: " + ex.getMessage());
@@ -208,23 +244,58 @@ public class AdvancedFindDialog extends JDialog {
             }
         } else {
             // 普通文本查找
+            String lowerContent = content.toLowerCase();
+            String lowerSearchText = searchText.toLowerCase();
+            
             if (forward) {
-                foundIndex = content.toLowerCase().indexOf(searchText.toLowerCase(), caretPosition);
-                if (foundIndex == -1) {
-                    foundIndex = content.toLowerCase().indexOf(searchText.toLowerCase());
+                // 向前查找
+                foundIndex = lowerContent.indexOf(lowerSearchText, caretPosition);
+                if (foundIndex == -1) { // 如果没找到，从头开始查找
+                    foundIndex = lowerContent.indexOf(lowerSearchText);
+                    if (foundIndex != -1) {
+                        JOptionPane.showMessageDialog(this, "已到达文档末尾，从头继续查找。");
+                    }
                 }
             } else {
-                foundIndex = content.toLowerCase().lastIndexOf(searchText.toLowerCase(), caretPosition - 1);
+                // 向后查找
+                foundIndex = lowerContent.lastIndexOf(lowerSearchText, Math.max(0, caretPosition - 1));
+                if (foundIndex == -1) { // 如果没找到，从末尾开始查找
+                    foundIndex = lowerContent.lastIndexOf(lowerSearchText);
+                    if (foundIndex != -1) {
+                        JOptionPane.showMessageDialog(this, "已到达文档开头，从末尾继续查找。");
+                    }
+                }
             }
         }
 
         if (foundIndex != -1) {
-            // 找到匹配项，设置选中
-            getCurrentTextPane().setCaretPosition(foundIndex);
-            getCurrentTextPane().select(foundIndex, foundIndex + searchText.length());
-            getCurrentTextPane().getCaret().setSelectionVisible(true);
+            // 找到匹配项，设置选中并滚动到可见区域
+            try {
+                // 使用 Document 的方法来设置选择
+                textPane.setCaretPosition(foundIndex);
+                textPane.moveCaretPosition(foundIndex + searchText.length());
+                
+                // 确保选中的文本可见
+                Rectangle viewRect = textPane.modelToView(foundIndex);
+                if (viewRect != null) {
+                    textPane.scrollRectToVisible(viewRect);
+                }
+                textPane.requestFocusInWindow();
+            } catch (BadLocationException e) {
+                e.printStackTrace();
+            }
         } else {
             JOptionPane.showMessageDialog(this, "未找到匹配项。");
+            // 重置光标位置
+            if (forward) {
+                textPane.setCaretPosition(0);
+            } else {
+                try {
+                    textPane.setCaretPosition(textPane.getDocument().getLength());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
@@ -235,7 +306,8 @@ public class AdvancedFindDialog extends JDialog {
         String searchText = searchField.getText();
         if (searchText.isEmpty()) return;
 
-        String content = getCurrentTextPane().getText();
+        JTextPane textPane = getCurrentTextPane();
+        String content = getDocumentText(textPane);
         allMatchPositions = new ArrayList<>();
         currentMatchIndex = -1;
 
@@ -253,8 +325,10 @@ public class AdvancedFindDialog extends JDialog {
             }
         } else {
             // 普通文本查找所有匹配项
+            String lowerContent = content.toLowerCase();
+            String lowerSearchText = searchText.toLowerCase();
             int index = 0;
-            while ((index = content.toLowerCase().indexOf(searchText.toLowerCase(), index)) != -1) {
+            while ((index = lowerContent.indexOf(lowerSearchText, index)) != -1) {
                 allMatchPositions.add(index);
                 index += searchText.length();
             }
