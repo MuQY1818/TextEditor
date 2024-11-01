@@ -143,6 +143,12 @@ public class WindowManager {
             }
 
             newFrame.setLocation(x, y);
+            try {
+                newFrame.setSelected(true);
+            } catch (java.beans.PropertyVetoException e) {
+                e.printStackTrace();
+            }
+            newFrame.toFront();
         }
     }
 

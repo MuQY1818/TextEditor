@@ -3,6 +3,9 @@ import javax.swing.undo.UndoManager;
 import java.io.*;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
+import javax.swing.text.DefaultEditorKit;
+import javax.swing.text.rtf.RTFEditorKit;
+import javax.swing.text.BadLocationException;
 
 /**
  * 文本文档类，用于处理文本的编辑、撤销、保存和加载
@@ -89,12 +92,28 @@ public class TextDocument {
      * @throws IOException 如果读取文件发生错误
      */
     public void loadFile(File file) throws IOException {
-        try (FileReader fr = new FileReader(file);
-             BufferedReader br = new BufferedReader(fr)) {
-            textPane.read(br, null);
+        // 检查文件扩展名
+        if (file.getName().toLowerCase().endsWith(".rtf")) {
+            // 加载RTF文件
+            try (FileInputStream fis = new FileInputStream(file)) {
+                RTFEditorKit rtfKit = new RTFEditorKit();
+                textPane.setEditorKit(rtfKit);
+                textPane.getDocument().putProperty(DefaultEditorKit.EndOfLineStringProperty, "\n");
+                try {
+                    rtfKit.read(fis, textPane.getDocument(), 0);
+                } catch (BadLocationException e) {
+                    throw new IOException("加载RTF文件时发生错误: " + e.getMessage());
+                }
+            }
+        } else {
+            // 普通文本文件按原方式加载
+            try (FileReader fr = new FileReader(file);
+                 BufferedReader br = new BufferedReader(fr)) {
+                textPane.read(br, null);
+            }
         }
-        this.file = file;  // 设置文件
-        setModified(false); // 文件加载后，将修改状态设为false
+        this.file = file;
+        setModified(false);
     }
 
     /**
@@ -104,11 +123,22 @@ public class TextDocument {
      * @throws IOException 如果写入文件发生错误
      */
     public void saveFile(File file) throws IOException {
-        try (FileWriter fw = new FileWriter(file);
-             BufferedWriter bw = new BufferedWriter(fw)) {
-            textPane.write(bw);
+        // 如果文件名不以.rtf结尾，自动添加.rtf扩展名
+        if (!file.getName().toLowerCase().endsWith(".rtf")) {
+            file = new File(file.getAbsolutePath() + ".rtf");
         }
-        this.file = file;  // 设置文件
-        setModified(false); // 文件保存后，将修改状态设为false
+        
+        // 保存为RTF格式
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            RTFEditorKit rtfKit = new RTFEditorKit();
+            try {
+                rtfKit.write(fos, textPane.getDocument(), 0, textPane.getDocument().getLength());
+            } catch (BadLocationException e) {
+                throw new IOException("保存RTF文件时发生错误: " + e.getMessage());
+            }
+        }
+        
+        this.file = file;
+        setModified(false);
     }
 }
